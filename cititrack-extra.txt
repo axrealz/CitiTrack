@@ -1,0 +1,1228 @@
+
+===== FILE: resources\views\cashier\dashboard.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'Cashier Dashboard')
+
+@section('content')
+
+<x-page-header title="Hello, {{ auth()->user()->name }}" subtitle="Your shift at a glance" />
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <x-stat-card
+        label="Today's Sales"
+        value="₱{{ number_format($todaySales, 2) }}"
+        icon="💰"
+        accent="emerald"
+    />
+
+    <x-stat-card
+        label="Today's Completed Sales"
+        :value="$todayTransactions"
+        icon="🧾"
+        accent="indigo"
+    />
+
+    <x-stat-card
+        label="This Month"
+        value="₱{{ number_format($monthlySales, 2) }}"
+        icon="📈"
+        accent="sky"
+    />
+
+    <x-stat-card
+        label="Pending Voids"
+        :value="$pendingVoids"
+        icon="🚫"
+        accent="amber"
+    />
+
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2">
+        <x-section-card title="Quick Actions">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <a href="{{ route('cashier.pos') }}"
+                   class="block p-5 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition text-center">
+                    <div class="text-3xl mb-2">🛒</div>
+                    <div class="font-semibold text-emerald-800">Open POS</div>
+                    <div class="text-xs text-emerald-600 mt-1">Start a new sale</div>
+                </a>
+
+                <a href="{{ route('cashier.returns.index') }}"
+                   class="block p-5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition text-center">
+                    <div class="text-3xl mb-2">↩️</div>
+                    <div class="font-semibold text-amber-800">Returns</div>
+                    <div class="text-xs text-amber-600 mt-1">Process a return</div>
+                </a>
+
+                <a href="{{ route('cashier.voids.index') }}"
+                   class="block p-5 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition text-center">
+                    <div class="text-3xl mb-2">🚫</div>
+                    <div class="font-semibold text-red-800">Void Requests</div>
+                    <div class="text-xs text-red-600 mt-1">Request a void</div>
+                </a>
+            </div>
+        </x-section-card>
+
+        <div class="mt-6">
+            <x-section-card title="Recent Transactions" subtitle="Your last 5 sales">
+                @if($recentTransactions->isEmpty())
+                    <x-empty-state title="No sales yet today" message="Open the POS to record your first sale.">
+                        <a href="{{ route('cashier.pos') }}" class="btn-primary">Open POS</a>
+                    </x-empty-state>
+                @else
+                    <table class="w-full text-sm">
+                        <thead class="text-xs uppercase text-slate-500 border-b border-slate-200">
+                            <tr>
+                                <th class="py-2 text-left">Reference</th>
+                                <th class="py-2 text-left">Date</th>
+                                <th class="py-2 text-right">Total</th>
+                                <th class="py-2 text-right">Status</th>
+                                <th class="py-2 text-right"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($recentTransactions as $tx)
+                                <tr>
+                                    <td class="py-2 font-mono text-xs">{{ $tx->reference_no }}</td>
+                                    <td class="py-2 text-slate-600 text-xs">
+                                        {{ $tx->created_at->format('M d, g:i A') }}
+                                    </td>
+                                    <td class="py-2 text-right font-medium">
+                                        <x-money :amount="$tx->total" />
+                                    </td>
+                                    <td class="py-2 text-right">
+                                        @php
+                                            $statusColors = ['completed' => 'green', 'voided' => 'red', 'returned' => 'amber'];
+                                        @endphp
+                                        <x-badge :color="$statusColors[$tx->status] ?? 'slate'">
+                                            {{ ucfirst($tx->status) }}
+                                        </x-badge>
+                                    </td>
+                                    <td class="py-2 text-right">
+                                        <a href="{{ route('cashier.sales-history.show', $tx) }}"
+                                           class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">View</a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+            </x-section-card>
+        </div>
+    </div>
+
+    <div>
+        <x-section-card title="Shift Info">
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Logged in</dt>
+                    <dd class="text-slate-800">{{ now()->format('M d, Y') }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Current time</dt>
+                    <dd class="text-slate-800">{{ now()->format('g:i A') }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Role</dt>
+                    <dd><x-badge color="emerald">Cashier</x-badge></dd>
+                </div>
+            </dl>
+        </x-section-card>
+    </div>
+
+</div>
+
+@endsection
+
+===== FILE: resources\views\cashier\pos.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'Point of Sale')
+
+@section('content')
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    {{-- Left: Product search + grid --}}
+    <div class="lg:col-span-2 space-y-4">
+
+        <form method="GET" action="{{ route('cashier.pos') }}" class="card p-3">
+            <div class="flex gap-3">
+                <input
+                    type="text"
+                    name="q"
+                    value="{{ $search }}"
+                    placeholder="Search product by name or SKU..."
+                    class="input flex-1"
+                    autofocus
+                >
+                <button type="submit" class="btn-primary">Search</button>
+                @if($search)
+                    <a href="{{ route('cashier.pos') }}" class="btn-secondary">Clear</a>
+                @endif
+            </div>
+        </form>
+
+        @if($products->isEmpty())
+            <x-empty-state title="No products found" message="{{ $search ? 'Try a different search.' : 'No products with stock available.' }}" />
+        @else
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                @foreach($products as $product)
+                    <form method="POST" action="{{ route('cashier.pos.add', $product) }}">
+                        @csrf
+                        <input type="hidden" name="qty" value="1">
+                        <button type="submit"
+                                class="w-full text-left card p-4 hover:border-emerald-400 hover:shadow transition">
+                            <div class="font-medium text-slate-800 text-sm leading-tight mb-1">
+                                {{ $product->name }}
+                            </div>
+                            @if($product->sku)
+                                <div class="text-xs font-mono text-slate-400 mb-1">{{ $product->sku }}</div>
+                            @endif
+                            <div class="flex items-center justify-between mt-2">
+                                <span class="text-emerald-700 font-semibold">
+                                    <x-money :amount="$product->price" />
+                                </span>
+                                <span class="text-xs {{ $product->stock_qty <= $product->reorder_level ? 'text-amber-600' : 'text-slate-400' }}">
+                                    {{ $product->stock_qty }} left
+                                </span>
+                            </div>
+                        </button>
+                    </form>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
+    {{-- Right: Cart --}}
+    <aside class="space-y-4">
+
+        <x-section-card title="Cart" :subtitle="$cart ? count($cart) . ' item(s)' : 'Empty'">
+
+            @if(empty($cart))
+                <div class="text-center py-8 text-slate-400">
+                    <div class="text-4xl mb-2">🛒</div>
+                    <p class="text-sm">No items yet. Click a product to add.</p>
+                </div>
+            @else
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    @foreach($cart as $row)
+                        <div class="border-b border-slate-100 pb-3 last:border-0">
+                            <div class="flex justify-between items-start gap-2 mb-2">
+                                <div class="text-sm font-medium text-slate-800 leading-tight">
+                                    {{ $row['product']->name }}
+                                </div>
+                                <form method="POST" action="{{ route('cashier.pos.remove', $row['product']) }}">
+                                    @csrf
+                                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs">✕</button>
+                                </form>
+                            </div>
+
+                            <div class="flex justify-between items-center gap-2">
+                                <form method="POST" action="{{ route('cashier.pos.update', $row['product']) }}" class="flex items-center gap-1">
+                                    @csrf
+                                    <input type="number" name="qty" value="{{ $row['qty'] }}"
+                                           min="0" max="{{ $row['product']->stock_qty }}"
+                                           class="w-16 border rounded px-2 py-1 text-sm">
+                                    <button type="submit" class="text-xs text-indigo-600 hover:text-indigo-800">Update</button>
+                                </form>
+                                <div class="font-medium text-slate-800 text-sm">
+                                    <x-money :amount="$row['subtotal']" />
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+        </x-section-card>
+
+        @if(!empty($cart))
+            <x-section-card title="Checkout">
+                <form method="POST" action="{{ route('cashier.pos.checkout') }}" class="space-y-3">
+                    @csrf
+
+                    <div class="flex justify-between items-center py-2 border-y border-slate-200">
+                        <span class="text-sm text-slate-600">Total</span>
+                        <span class="font-semibold"><x-money :amount="$subtotal" /></span>
+                    </div>
+
+
+                    <div>
+                        <label class="label">Payment Method</label>
+                        <select name="payment_method" class="input" required>
+                            <option value="cash" @selected(old('payment_method') === 'cash')>Cash</option>
+                            <option value="gcash" @selected(old('payment_method') === 'gcash')>GCash</option>
+                        </select>
+                        @error('payment_method') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="label">Amount Paid (₱)</label>
+                        <input type="number" name="amount_paid" value="{{ old('amount_paid') }}"
+                               min="0" step="0.01" class="input" required>
+                        @error('amount_paid') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="label">Notes (optional)</label>
+                        <input type="text" name="notes" value="{{ old('notes') }}" class="input" maxlength="500">
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full justify-center py-3 text-base">
+                        Complete Sale
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ route('cashier.pos.clear') }}" class="mt-2"
+                      onsubmit="return confirm('Clear the entire cart?');">
+                    @csrf
+                    <button type="submit" class="text-xs text-red-600 hover:text-red-800 w-full text-center">
+                        Clear cart
+                    </button>
+                </form>
+            </x-section-card>
+        @endif
+
+    </aside>
+</div>
+
+@endsection
+
+
+===== FILE: resources\views\cashier\receipt.blade.php =====
+
+@extends('layouts.print')
+
+@section('title', 'Receipt ' . $transaction->reference_no)
+
+@section('content')
+
+<div class="center bold" style="font-size: 14px;">CITI POWER ELECTRONIC SUPPLY</div>
+<div class="center">Davao City</div>
+<div class="center">Sales &amp; Inventory System</div>
+<div class="line"></div>
+
+<div>Ref: <span class="bold">{{ $transaction->reference_no }}</span></div>
+<div>Date: {{ $transaction->created_at->format('M d, Y g:i A') }}</div>
+<div>Cashier: {{ $transaction->cashier->name ?? '—' }}</div>
+<div class="line"></div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th class="right">Qty</th>
+            <th class="right">Price</th>
+            <th class="right">Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($transaction->items as $item)
+            <tr>
+                <td>{{ $item->product_name }}</td>
+                <td class="right">{{ $item->qty }}</td>
+                <td class="right">{{ number_format($item->unit_price, 2) }}</td>
+                <td class="right">{{ number_format($item->subtotal, 2) }}</td>
+            </tr>
+        @endforeach
+    </tbody>
+</table>
+
+<div class="line"></div>
+
+<table class="totals">
+    <tr>
+        <td class="label">Subtotal</td>
+        <td class="value">₱{{ number_format($transaction->subtotal, 2) }}</td>
+    </tr>
+    <tr class="bold">
+        <td class="label">TOTAL</td>
+        <td class="value">₱{{ number_format($transaction->total, 2) }}</td>
+    </tr>
+    <tr>
+        <td class="label">Payment</td>
+        <td class="value">{{ strtoupper($transaction->payment_method) }}</td>
+    </tr>
+    <tr>
+        <td class="label">Amount Paid</td>
+        <td class="value">₱{{ number_format($transaction->amount_paid, 2) }}</td>
+    </tr>
+    <tr>
+        <td class="label">Change</td>
+        <td class="value">₱{{ number_format($transaction->change_due, 2) }}</td>
+    </tr>
+</table>
+
+<div class="line"></div>
+
+<div class="center">Thank you for your purchase!</div>
+<div class="center" style="font-size: 10px; margin-top: 4px;">
+    Returns accepted within 24 hours with this receipt.
+</div>
+
+@if($transaction->status === 'voided')
+    <div class="line"></div>
+    <div class="center bold" style="color: red; font-size: 14px;">** VOIDED **</div>
+@elseif($transaction->status === 'returned')
+    <div class="line"></div>
+    <div class="center bold" style="color: red; font-size: 14px;">** RETURNED **</div>
+@endif
+
+@endsection
+
+===== FILE: resources\views\cashier\returns.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'Returns & Exchanges')
+
+@section('content')
+
+<x-page-header title="Returns & Exchanges" subtitle="Process item returns within 24 hours" />
+
+@isset($transaction)
+    <div class="card p-6 mb-6">
+        <h3 class="font-semibold text-slate-800 mb-2">
+            Returning items from: <span class="font-mono">{{ $transaction->reference_no }}</span>
+        </h3>
+        <p class="text-sm text-slate-500 mb-4">
+            Original sale: {{ $transaction->created_at->format('M d, Y g:i A') }}
+            ({{ $transaction->created_at->diffForHumans() }})
+        </p>
+
+        <form method="POST" action="{{ route('cashier.returns.store', $transaction) }}" class="space-y-4">
+            @csrf
+
+            <div class="space-y-3">
+                <label class="label">Select items to return</label>
+                @foreach($transaction->items as $item)
+                    <div class="flex items-center gap-4 p-3 border border-slate-200 rounded-md">
+                        <input type="checkbox" 
+                               name="items[{{ $loop->index }}][id]" 
+                               value="{{ $item->id }}" 
+                               id="item-check-{{ $loop->index }}"
+                               class="item-checkbox rounded border-slate-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        
+                        <div class="flex-1">
+                            <label for="item-check-{{ $loop->index }}" class="text-sm font-medium text-slate-800 cursor-pointer">
+                                {{ $item->product_name }}
+                            </label>
+                            <p class="text-xs text-slate-500">{{ $item->qty }} sold @ ₱{{ number_format($item->unit_price, 2) }}</p>
+                        </div>
+
+                        <div class="w-24">
+                            <label class="text-xs text-slate-500">Qty to return</label>
+                            <input type="number" 
+                                   name="items[{{ $loop->index }}][qty]" 
+                                   min="1" 
+                                   max="{{ $item->qty }}" 
+                                   value="1" 
+                                   disabled
+                                   id="item-qty-{{ $loop->index }}"
+                                   class="item-qty input mt-1 opacity-50">
+                        </div>
+                    </div>
+                @endforeach
+                @error('items') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Type</label>
+                    <select name="type" class="input" required>
+                        <option value="return" @selected(old('type') === 'return')>Return (refund)</option>
+                        <option value="exchange" @selected(old('type') === 'exchange')>Exchange</option>
+                    </select>
+                    @error('type') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div>
+                <label class="label">Reason</label>
+                <textarea name="reason" rows="3" class="input" required>{{ old('reason') }}</textarea>
+                @error('reason') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="btn-primary">Process Return</button>
+                <a href="{{ route('cashier.returns.index') }}" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+@endisset
+
+<x-section-card title="Recent Transactions" subtitle="Sales from the last 7 days">
+    @if($transactions->isEmpty())
+        <x-empty-state title="No recent transactions" message="Returns can only be processed for sales from the last 7 days." />
+    @else
+        <table class="w-full text-sm">
+            <thead class="text-xs uppercase text-slate-500 border-b border-slate-200">
+                <tr>
+                    <th class="py-2 text-left">Reference</th>
+                    <th class="py-2 text-left">Date</th>
+                    <th class="py-2 text-left">Cashier</th>
+                    <th class="py-2 text-right">Total</th>
+                    <th class="py-2 text-center">Status</th>
+                    <th class="py-2 text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @foreach($transactions as $tx)
+                    @php
+                        $hoursSince = $tx->created_at->diffInHours(now());
+                        $alreadyReturned = $tx->returns->isNotEmpty();
+                        $eligible = $hoursSince <= 24 && $tx->status === 'completed' && !$alreadyReturned;
+                    @endphp
+                    <tr>
+                        <td class="py-2 font-mono text-xs">{{ $tx->reference_no }}</td>
+                        <td class="py-2 text-xs text-slate-500">{{ $tx->created_at->format('M d, g:i A') }}</td>
+                        <td class="py-2 text-sm text-slate-600">{{ $tx->cashier->name ?? '—' }}</td>
+                        <td class="py-2 text-right text-sm"><x-money :amount="$tx->total" /></td>
+                        <td class="py-2 text-center">
+                            @if($tx->status === 'returned' || $alreadyReturned)
+                                <x-badge color="amber">Returned</x-badge>
+                            @elseif($tx->status === 'voided')
+                                <x-badge color="red">Voided</x-badge>
+                            @elseif($hoursSince > 24)
+                                <x-badge color="slate">Expired</x-badge>
+                            @else
+                                <x-badge color="green">Completed</x-badge>
+                            @endif
+                        </td>
+                        <td class="py-2 text-right">
+                            @if($eligible)
+                                <a href="{{ route('cashier.returns.create', $tx) }}"
+                                   class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                                    Process
+                                </a>
+                            @else
+                                <span class="text-slate-400 text-sm">—</span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        <x-pagination :paginator="$transactions" />
+    @endif
+</x-section-card>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.item-checkbox').forEach((checkbox) => {
+        checkbox.addEventListener('change', function() {
+            const index = this.id.split('-').pop();
+            const qtyInput = document.getElementById('item-qty-' + index);
+            
+            if (this.checked) {
+                qtyInput.disabled = false;
+                qtyInput.classList.remove('opacity-50');
+            } else {
+                qtyInput.disabled = true;
+                qtyInput.classList.add('opacity-50');
+            }
+        });
+    });
+});
+</script>
+
+@endsection
+
+===== FILE: resources\views\cashier\sales-history.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'My Sales History')
+
+@section('content')
+
+<x-page-header title="Sales History" subtitle="All transactions you've processed" />
+
+<form method="GET" class="card p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div class="md:col-span-2">
+            <x-search-input name="q" placeholder="Search by reference number..." />
+        </div>
+        <div>
+            <input type="date" name="from" value="{{ request('from') }}" class="input" placeholder="From">
+        </div>
+        <div>
+            <input type="date" name="to" value="{{ request('to') }}" class="input" placeholder="To">
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary">Filter</button>
+            <a href="{{ route('cashier.sales-history') }}" class="btn-secondary">Reset</a>
+        </div>
+    </div>
+</form>
+
+@if($transactions->isEmpty())
+    <x-empty-state title="No transactions found" message="Try adjusting your filters.">
+        <a href="{{ route('cashier.pos') }}" class="btn-primary">Open POS</a>
+    </x-empty-state>
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Reference</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Items</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Total</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Status</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($transactions as $tx)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 font-mono text-xs">{{ $tx->reference_no }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600">
+                            {{ $tx->created_at->format('M d, Y g:i A') }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm">{{ $tx->items->count() }}</td>
+                        <td class="px-4 py-3 text-right text-sm font-medium">
+                            <x-money :amount="$tx->total" />
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            @php
+                                $statusColors = ['completed' => 'green', 'voided' => 'red', 'returned' => 'amber'];
+                            @endphp
+                            <x-badge :color="$statusColors[$tx->status] ?? 'slate'">
+                                {{ ucfirst($tx->status) }}
+                            </x-badge>
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <a href="{{ route('cashier.sales-history.show', $tx) }}"
+                               class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">View</a>
+                            <a href="{{ route('cashier.receipt', $tx) }}" target="_blank"
+                               class="text-sky-600 hover:text-sky-800 text-sm font-medium ml-3">Receipt</a>
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <x-pagination :paginator="$transactions" />
+@endif
+
+@endsection
+
+===== FILE: resources\views\cashier\sales-show.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'Transaction Details')
+
+@section('content')
+
+<x-page-header :title="$transaction->reference_no" :subtitle="$transaction->created_at->format('M d, Y g:i A')">
+    <x-slot:actions>
+        <a href="{{ route('cashier.receipt', $transaction) }}" target="_blank" class="btn-secondary">🖨 Print Receipt</a>
+    </x-slot:actions>
+</x-page-header>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2 space-y-6">
+
+        <x-section-card title="Items">
+            <table class="w-full text-sm">
+                <thead class="text-xs uppercase text-slate-500 border-b border-slate-200">
+                    <tr>
+                        <th class="py-2 text-left">Item</th>
+                        <th class="py-2 text-right">Qty</th>
+                        <th class="py-2 text-right">Price</th>
+                        <th class="py-2 text-right">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @foreach($transaction->items as $item)
+                        <tr>
+                            <td class="py-2">{{ $item->product_name }}</td>
+                            <td class="py-2 text-right">{{ $item->qty }}</td>
+                            <td class="py-2 text-right"><x-money :amount="$item->unit_price" /></td>
+                            <td class="py-2 text-right font-medium"><x-money :amount="$item->subtotal" /></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot class="border-t border-slate-200">
+                    <tr>
+                        <td colspan="3" class="py-2 text-right text-slate-600">Subtotal</td>
+                        <td class="py-2 text-right"><x-money :amount="$transaction->subtotal" /></td>
+                    </tr>
+                    @if($transaction->discount > 0)
+                        <tr>
+                            <td colspan="3" class="py-2 text-right text-slate-600">Discount</td>
+                            <td class="py-2 text-right text-red-600">-<x-money :amount="$transaction->discount" /></td>
+                        </tr>
+                    @endif
+                    <tr class="font-semibold">
+                        <td colspan="3" class="py-2 text-right text-slate-800">Total</td>
+                        <td class="py-2 text-right text-slate-900"><x-money :amount="$transaction->total" /></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </x-section-card>
+
+        @if($transaction->returns->isNotEmpty())
+            <x-section-card title="Returns Processed">
+                <table class="w-full text-sm">
+                    <thead class="text-xs uppercase text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="py-2 text-left">Item</th>
+                            <th class="py-2 text-right">Qty</th>
+                            <th class="py-2 text-right pr-4">Refund</th> 
+                            <th class="py-2 text-left pl-4">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach($transaction->returns as $r)
+                            <tr>
+                                <td class="py-2">{{ $r->product->name ?? '—' }}</td>
+                                <td class="py-2 text-right">{{ $r->qty }}</td>
+                                <td class="py-2 text-right pr-4 font-medium text-slate-700">
+                                    <x-money :amount="$r->refund_amount" />
+                                </td>
+                                <td class="py-2 text-xs text-slate-500 pl-4 max-w-xs whitespace-normal break-words">
+                                    {{ $r->reason }}
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </x-section-card>
+        @endif
+
+        @if($transaction->voidRequest)
+            <x-section-card title="Void Request">
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <dt class="text-slate-500">Status</dt>
+                        <dd>
+                            @php
+                                $sc = ['pending' => 'amber', 'approved' => 'green', 'rejected' => 'red'];
+                            @endphp
+                            <x-badge :color="$sc[$transaction->voidRequest->status] ?? 'slate'">
+                                {{ ucfirst($transaction->voidRequest->status) }}
+                            </x-badge>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-slate-500">Reason</dt>
+                        <dd class="text-slate-800 mt-1">{{ $transaction->voidRequest->reason }}</dd>
+                    </div>
+                </dl>
+            </x-section-card>
+        @endif
+
+    </div>
+
+    <div class="space-y-6">
+
+        <x-section-card title="Transaction">
+            <dl class="space-y-3 text-sm">
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Status</dt>
+                    <dd>
+                        @php
+                            $sc = ['completed' => 'green', 'voided' => 'red', 'returned' => 'amber'];
+                        @endphp
+                        <x-badge :color="$sc[$transaction->status] ?? 'slate'">
+                            {{ ucfirst($transaction->status) }}
+                        </x-badge>
+                    </dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Payment</dt>
+                    <dd class="capitalize">{{ $transaction->payment_method }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Amount Paid</dt>
+                    <dd><x-money :amount="$transaction->amount_paid" /></dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-slate-500">Change</dt>
+                    <dd><x-money :amount="$transaction->change_due" /></dd>
+                </div>
+            </dl>
+        </x-section-card>
+
+        <x-section-card title="Actions">
+            <div class="space-y-2">
+                @if($transaction->status === 'completed'
+                    && ! $transaction->voidRequest
+                    && $transaction->created_at->diffInHours(now()) <= 24)
+                    <a href="{{ route('cashier.returns.create', $transaction) }}"
+                       class="btn-secondary w-full justify-center">Process Return</a>
+
+                    <a href="{{ route('cashier.voids.create', $transaction) }}"
+                       class="btn-danger w-full justify-center">Request Void</a>
+                @endif
+
+                @if($transaction->created_at->diffInHours(now()) > 24)
+                    <p class="text-xs text-amber-600">
+                        ⚠ 24-hour return window expired.
+                    </p>
+                @endif
+
+                <a href="{{ route('cashier.sales-history') }}" class="btn-secondary w-full justify-center">
+                    Back to history
+                </a>
+            </div>
+        </x-section-card>
+
+    </div>
+
+</div>
+
+@endsection
+
+===== FILE: resources\views\cashier\voids\create.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'Request Void')
+
+@section('content')
+
+<x-page-header title="Request Void" :subtitle="$transaction->reference_no" />
+
+<div class="max-w-2xl space-y-6">
+
+    <x-section-card title="Transaction Summary">
+        <dl class="space-y-2 text-sm">
+            <div class="flex justify-between">
+                <dt class="text-slate-500">Reference</dt>
+                <dd class="font-mono text-xs">{{ $transaction->reference_no }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-slate-500">Date</dt>
+                <dd>{{ $transaction->created_at->format('M d, Y g:i A') }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-slate-500">Total</dt>
+                <dd class="font-medium"><x-money :amount="$transaction->total" /></dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-slate-500">Items</dt>
+                <dd>{{ $transaction->items->count() }}</dd>
+            </div>
+        </dl>
+    </x-section-card>
+
+    <form method="POST" action="{{ route('cashier.voids.store', $transaction) }}">
+        @csrf
+
+        <x-section-card title="Reason for Void">
+            <p class="text-sm text-slate-600 mb-3">
+                Explain why this transaction should be voided. The admin will review and either approve or reject.
+            </p>
+
+            <textarea name="reason" rows="5" class="input" required
+                      placeholder="E.g., Customer changed mind, duplicate entry, wrong item scanned...">{{ old('reason') }}</textarea>
+            @error('reason') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+        </x-section-card>
+
+        <div class="mt-6 flex gap-3">
+            <button type="submit" class="btn-danger">Submit Void Request</button>
+            <a href="{{ route('cashier.sales-history.show', $transaction) }}" class="btn-secondary">Cancel</a>
+        </div>
+    </form>
+
+</div>
+
+@endsection
+
+===== FILE: resources\views\cashier\voids\index.blade.php =====
+
+@extends('layouts.cashier')
+
+@section('title', 'My Void Requests')
+
+@section('content')
+
+<x-page-header title="Void Requests" subtitle="Track your submitted void requests" />
+
+@if($voids->isEmpty())
+    <x-empty-state title="No void requests yet" message="You can request a void from the sales history page.">
+        <a href="{{ route('cashier.sales-history') }}" class="btn-primary">Go to Sales History</a>
+    </x-empty-state>
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Transaction</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Reason</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Submitted</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Admin Notes</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($voids as $void)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 font-mono text-xs">
+                            {{ $void->transaction->reference_no ?? '—' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600 max-w-xs truncate">{{ $void->reason }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-500">{{ $void->created_at->diffForHumans() }}</td>
+                        <td class="px-4 py-3 text-center">
+                            @php
+                                $statusColors = ['pending' => 'amber', 'approved' => 'green', 'rejected' => 'red'];
+                            @endphp
+                            <x-badge :color="$statusColors[$void->status] ?? 'slate'">
+                                {{ ucfirst($void->status) }}
+                            </x-badge>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600">
+                            {{ $void->rejection_reason ?? '—' }}
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <x-pagination :paginator="$voids" />
+@endif
+
+@endsection
+
+===== FILE: resources\views\stocker\adjustments\create.blade.php =====
+
+@extends('layouts.stocker')
+
+@section('title', 'Request Stock Adjustment')
+
+@section('content')
+
+<x-page-header title="Request Stock Adjustment" subtitle="Correct stock when physical count doesn't match" />
+
+<div class="max-w-2xl">
+    <form method="POST" action="{{ route('stocker.adjustments.store') }}">
+        @csrf
+
+        <x-section-card title="Adjustment Details">
+            <div class="space-y-4">
+
+                <div>
+                    <label class="label">Product</label>
+                    <select name="product_id" id="product_id" class="input" required
+                            onchange="updateCurrentQty()">
+                        <option value="">-- Select product --</option>
+                        @foreach($products as $product)
+                            <option value="{{ $product->id }}"
+                                    data-current="{{ $product->stock_qty }}"
+                                    @selected(old('product_id') == $product->id)>
+                                {{ $product->name }} (current: {{ $product->stock_qty }})
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('product_id') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Current Stock (system)</label>
+                        <input type="number" id="current_qty" class="input bg-slate-100" readonly value="">
+                    </div>
+
+                    <x-form-input name="new_qty" label="New Quantity (counted)" type="number"
+                                  min="0" :value="old('new_qty')" required
+                                  hint="What you actually counted on the shelf" />
+                </div>
+
+                <div>
+                    <label class="label">Reason</label>
+                    <textarea name="reason" rows="4" class="input" required
+                              placeholder="E.g., Physical count showed 3 fewer units due to damage...">{{ old('reason') }}</textarea>
+                    @error('reason') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800">
+                    ⚠ This request will be sent to the admin for approval. Stock won't change until approved.
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="submit" class="btn-primary">Submit Request</button>
+                    <a href="{{ route('stocker.adjustments.index') }}" class="btn-secondary">Cancel</a>
+                </div>
+
+            </div>
+        </x-section-card>
+    </form>
+</div>
+
+<script>
+    function updateCurrentQty() {
+        const select = document.getElementById('product_id');
+        const selected = select.options[select.selectedIndex];
+        const current = selected.getAttribute('data-current') ?? '';
+        document.getElementById('current_qty').value = current;
+    }
+    document.addEventListener('DOMContentLoaded', updateCurrentQty);
+</script>
+
+@endsection
+
+===== FILE: resources\views\stocker\adjustments\index.blade.php =====
+
+@extends('layouts.stocker')
+
+@section('title', 'My Adjustment Requests')
+
+@section('content')
+
+<x-page-header title="Adjustment Requests" subtitle="Track your stock adjustment submissions">
+    <x-slot:actions>
+        <a href="{{ route('stocker.adjustments.create') }}" class="btn-primary">+ New Request</a>
+    </x-slot:actions>
+</x-page-header>
+
+@if($adjustments->isEmpty())
+    <x-empty-state title="No adjustment requests yet" message="Submit a request when physical count doesn't match the system.">
+        <a href="{{ route('stocker.adjustments.create') }}" class="btn-primary">+ New Request</a>
+    </x-empty-state>
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Old → New</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Diff</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Submitted</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Admin Notes</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($adjustments as $adj)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 text-sm font-medium text-slate-800">
+                            {{ $adj->product->name ?? '—' }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm">
+                            <span class="text-slate-500">{{ $adj->old_qty }}</span>
+                            →
+                            <span class="font-medium">{{ $adj->new_qty }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm font-mono
+                            {{ $adj->difference > 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                            {{ $adj->difference > 0 ? '+' : '' }}{{ $adj->difference }}
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-500">
+                            {{ $adj->created_at->diffForHumans() }}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            @php
+                                $sc = ['pending' => 'amber', 'approved' => 'green', 'rejected' => 'red'];
+                            @endphp
+                            <x-badge :color="$sc[$adj->status] ?? 'slate'">
+                                {{ ucfirst($adj->status) }}
+                            </x-badge>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600">
+                            {{ $adj->rejection_reason ?? '—' }}
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <x-pagination :paginator="$adjustments" />
+@endif
+
+@endsection
+
+===== FILE: resources\views\admin\profile.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Profile')
+
+@section('content')
+
+<x-page-header title="My Profile" subtitle="Manage your account details" />
+
+<div class="max-w-2xl space-y-6">
+
+    <x-section-card title="Profile Information" subtitle="Update your name and email">
+        @include('profile.partials.update-profile-information-form')
+    </x-section-card>
+
+    <x-section-card title="Update Password" subtitle="Use a strong, unique password">
+        @include('profile.partials.update-password-form')
+    </x-section-card>
+
+</div>
+
+@endsection
+
+===== FILE: app\Http\Middleware\SessionTimeout.php =====
+
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class SessionTimeout
+{
+    /**
+     * Inactivity timeout in minutes.
+     * Store computer left unattended → auto logout.
+     */
+    protected int $timeoutMinutes = 30;
+
+    public function handle(Request $request, Closure $next): Response
+    {
+        if ($request->user()) {
+            $lastActivity = session('last_activity_at');
+
+            if ($lastActivity && now()->diffInMinutes($lastActivity) >= $this->timeoutMinutes) {
+                auth()->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('login')
+                    ->withErrors(['email' => 'Session expired due to inactivity. Please log in again.']);
+            }
+
+            session(['last_activity_at' => now()]);
+        }
+
+        return $next($request);
+    }
+}
+
+===== FILE: routes\auth.php =====
+
+<?php
+
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\VerifyEmailController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware('guest')->group(function () {
+
+    Route::get('login', [AuthenticatedSessionController::class, 'create'])
+                ->name('login');
+
+    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
+                ->name('password.request');
+
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+                ->name('password.email');
+
+    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
+                ->name('password.reset');
+
+    Route::post('reset-password', [NewPasswordController::class, 'store'])
+                ->name('password.store');
+});
+
+Route::middleware('auth')->group(function () {
+
+    Route::get('verify-email', EmailVerificationPromptController::class)
+                ->name('verification.notice');
+
+    Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
+                ->middleware(['signed', 'throttle:6,1'])
+                ->name('verification.verify');
+
+    Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+                ->middleware('throttle:6,1')
+                ->name('verification.send');
+
+    Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
+                ->name('password.confirm');
+
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+
+    Route::put('password', [PasswordController::class, 'update'])
+                ->name('password.update');
+
+    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
+                ->name('logout');
+});
+
+===== FILE: app\View\Components\AppLayout.php =====
+
+<?php
+
+namespace App\View\Components;
+
+use Illuminate\View\Component;
+use Illuminate\View\View;
+
+class AppLayout extends Component
+{
+    /**
+     * Get the view / contents that represents the component.
+     */
+    public function render(): View
+    {
+        return view('layouts.app');
+    }
+}
+
+
+===== FILE: app\View\Components\GuestLayout.php =====
+
+<?php
+
+namespace App\View\Components;
+
+use Illuminate\View\Component;
+use Illuminate\View\View;
+
+class GuestLayout extends Component
+{
+    /**
+     * Get the view / contents that represents the component.
+     */
+    public function render(): View
+    {
+        return view('layouts.guest');
+    }
+}
+
+
+===== TESTS =====
+
+C:\Users\axeld\Projects\cititrack-main\tests\Pest.php
+C:\Users\axeld\Projects\cititrack-main\tests\TestCase.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\ExampleTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\ProfileTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\Auth\AuthenticationTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\Auth\EmailVerificationTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\Auth\PasswordConfirmationTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\Auth\PasswordResetTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\Auth\PasswordUpdateTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Feature\Auth\RegistrationTest.php
+C:\Users\axeld\Projects\cititrack-main\tests\Unit\ExampleTest.php
+

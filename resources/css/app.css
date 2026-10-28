@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply antialiased text-slate-800 bg-slate-50;
+    }
+
+    /* Checkboxes / radios: darker border so the box is visible (WCAG 1.4.11, 3:1) */
+    [type='checkbox'],
+    [type='radio'] {
+        @apply border-slate-500;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply inline-flex items-center px-4 py-2 bg-amber-500 border border-transparent
+               rounded-md font-semibold text-sm text-slate-900 uppercase tracking-widest
+               hover:bg-amber-400 active:bg-amber-600
+               focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600
+               focus-visible:ring-offset-2 transition;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center px-4 py-2 bg-white border border-slate-400
+               rounded-md font-semibold text-sm text-slate-700 uppercase tracking-widest
+               hover:bg-slate-100 hover:text-slate-900
+               focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-600
+               focus-visible:ring-offset-2 transition;
+    }
+
+    .btn-danger {
+        @apply inline-flex items-center px-4 py-2 bg-red-600 border border-transparent
+               rounded-md font-semibold text-sm text-white uppercase tracking-widest
+               hover:bg-red-700 active:bg-red-800
+               focus:outline-none focus-visible:ring-2 focus-visible:ring-red-600
+               focus-visible:ring-offset-2 transition;
+    }
+
+    .btn-primary:disabled,
+    .btn-secondary:disabled,
+    .btn-danger:disabled {
+        @apply bg-slate-300 border-transparent text-slate-700 cursor-not-allowed;
+    }
+
+    .card {
+        @apply bg-white rounded-lg shadow-sm border border-slate-200;
+    }
+
+    .card-header {
+        @apply px-6 py-4 border-b border-slate-200 font-semibold text-slate-800;
+    }
+
+    .card-body {
+        @apply px-6 py-4;
+    }
+
+    .input {
+        @apply block w-full rounded-md border-slate-500 shadow-sm text-sm text-slate-900
+               focus:border-amber-600 focus:ring-amber-600;
+    }
+
+    .input::placeholder {
+        @apply text-slate-500;
+    }
+
+    .input:disabled,
+    .input[readonly] {
+        @apply bg-slate-100 text-slate-600 border-slate-400 cursor-not-allowed shadow-none;
+    }
+
+    .label {
+        @apply block text-sm font-medium text-slate-700 mb-1;
+    }
+
+    /* POS product card name: max 2 lines, always reserves 2 lines of height */
+    .pos-card-name {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        min-height: 2.2rem;
+    }
+
+    /* Confirmation dialog (native <dialog>) */
+    .cn-dialog {
+        @apply p-0 rounded-lg shadow-xl border border-slate-200 bg-white text-slate-800;
+        width: calc(100% - 2rem);
+        max-width: 28rem;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+        margin: auto;
+    }
+
+    .cn-dialog::backdrop {
+        background: rgb(15 23 42 / 0.6);
+    }
+
+    .cn-dialog__body {
+        @apply px-6 py-5;
+    }
+
+    .cn-dialog__footer {
+        @apply px-6 py-4 bg-slate-50 border-t border-slate-200
+               flex flex-col-reverse gap-2 sm:flex-row sm:justify-end;
+    }
+}
+
+/* Pagination (Laravel's built-in view): make the current page obvious */
+nav[role='navigation'] [aria-current='page'] > span {
+    background-color: #fef3c7;
+    color: #0f172a;
+    border-color: #d97706;
+    font-weight: 700;
+}
+
+@media print {
+    .no-print { display: none !important; }
+    body { background: white !important; }
+}

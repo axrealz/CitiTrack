@@ -1,0 +1,37 @@
+
+*.log
+.DS_Store
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+/auth.json
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Generated build files
+/public/build/
+/public/hot
+/public/storage
+
+# Laravel generated files
+/storage/*.key
+/storage/pail
+
+# IDE and editor files
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+.phpactor.json
+.phpunit.result.cache
+
+# Other files
+Homestead.json
+Homestead.yaml
+Thumbs.db

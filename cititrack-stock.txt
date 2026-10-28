@@ -1,0 +1,455 @@
+
+===== FILE: database\migrations\2026_10_10_065741_create_suppliers_table.php =====
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('suppliers', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 150);
+            $table->string('contact_person', 100)->nullable();
+            $table->string('phone', 30)->nullable();
+            $table->string('email', 150)->nullable();
+            $table->text('address')->nullable();
+            $table->string('city', 100)->nullable();
+            $table->text('notes')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('is_active');
+            $table->index('name');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('suppliers');
+    }
+};
+
+===== FILE: database\migrations\2026_10_10_065802_create_products_table.php =====
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            $table->string('name', 150);
+            $table->string('sku', 50)->nullable()->unique();
+            $table->foreignId('category_id')
+                  ->constrained('categories')
+                  ->cascadeOnUpdate()
+                  ->restrictOnDelete();
+            $table->foreignId('supplier_id')
+                  ->nullable()
+                  ->constrained('suppliers')
+                  ->cascadeOnUpdate()
+                  ->nullOnDelete();
+            $table->decimal('cost', 10, 2)->default(0);
+            $table->decimal('price', 10, 2);
+            $table->integer('stock_qty')->default(0);
+            $table->integer('reorder_level')->default(5);
+            $table->text('description')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('is_active');
+            $table->index('name');
+            $table->index(['stock_qty', 'reorder_level']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('products');
+    }
+};
+
+===== FILE: database\migrations\2026_10_10_065907_create_stock_logs_table.php =====
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')
+                  ->constrained('products')
+                  ->cascadeOnUpdate()
+                  ->restrictOnDelete();
+            $table->foreignId('supplier_id')
+                  ->nullable()
+                  ->constrained('suppliers')
+                  ->cascadeOnUpdate()
+                  ->nullOnDelete();
+            $table->foreignId('user_id')
+                  ->constrained('users')
+                  ->cascadeOnUpdate()
+                  ->restrictOnDelete();
+            $table->enum('type', [
+                'stock_in',
+                'sale_deduction',
+                'return_restock',
+                'adjustment',
+                'void_restock'
+            ]);
+            $table->integer('qty');             // + or - depending on type
+            $table->integer('stock_before');
+            $table->integer('stock_after');
+            $table->decimal('unit_cost', 10, 2)->nullable();
+            $table->text('reason')->nullable();
+            $table->timestamps();
+
+            $table->index('type');
+            $table->index('created_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_logs');
+    }
+};
+
+===== FILE: app\Models\StockLog.php =====
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class StockLog extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'product_id',
+        'supplier_id',
+        'user_id',
+        'type',
+        'qty',
+        'stock_before',
+        'stock_after',
+        'unit_cost',
+        'reason',
+    ];
+
+    protected $casts = [
+        'qty'          => 'integer',
+        'stock_before' => 'integer',
+        'stock_after'  => 'integer',
+        'unit_cost'    => 'decimal:2',
+    ];
+
+    /* ─────────── Relationships ─────────── */
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class)->withTrashed();
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class)->withTrashed();
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class)->withTrashed();
+    }
+
+    /* ─────────── Helpers ─────────── */
+
+    public function isIncrease(): bool
+    {
+        return $this->qty > 0;
+    }
+
+    public function isDecrease(): bool
+    {
+        return $this->qty < 0;
+    }
+
+    /* ─────────── Scopes ─────────── */
+
+    public function scopeOfType($query, string $type)
+    {
+        return $query->where('type', $type);
+    }
+
+    public function scopeToday($query)
+    {
+        return $query->whereDate('created_at', today());
+    }
+}
+
+===== FILE: app\Models\Product.php =====
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Product extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    protected $fillable = [
+        'name',
+        'sku',
+        'category_id',
+        'supplier_id',
+        'cost',
+        'price',
+        'stock_qty',
+        'reorder_level',
+        'description',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'cost'          => 'decimal:2',
+        'price'         => 'decimal:2',
+        'stock_qty'     => 'integer',
+        'reorder_level' => 'integer',
+        'is_active'     => 'boolean',
+    ];
+
+    /* ─────────── Relationships ─────────── */
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+
+    public function transactionItems()
+    {
+        return $this->hasMany(TransactionItem::class);
+    }
+
+    public function stockLogs()
+    {
+        return $this->hasMany(StockLog::class);
+    }
+
+    public function returns()
+    {
+        return $this->hasMany(ReturnItem::class);
+    }
+
+    public function adjustmentRequests()
+    {
+        return $this->hasMany(AdjustmentRequest::class);
+    }
+
+    /* ─────────── Helpers ─────────── */
+
+    public function isLowStock(): bool
+    {
+        return $this->stock_qty <= $this->reorder_level;
+    }
+
+    public function profit(): float
+    {
+        return (float) $this->price - (float) $this->cost;
+    }
+
+    /* ─────────── Scopes ─────────── */
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeLowStock($query)
+    {
+        return $query->whereColumn('stock_qty', '<=', 'reorder_level');
+    }
+}
+
+===== FILE: app\Models\Supplier.php =====
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Supplier extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    protected $fillable = [
+        'name',
+        'contact_person',
+        'phone',
+        'email',
+        'address',
+        'city',
+        'notes',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
+    /* ─────────── Relationships ─────────── */
+
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    public function stockLogs()
+    {
+        return $this->hasMany(StockLog::class);
+    }
+
+    /* ─────────── Scopes ─────────── */
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+}
+
+===== FILE: app\Http\Requests\StockInRequest.php =====
+
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StockInRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()?->isStocker() ?? false;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'product_id'  => ['required', 'exists:products,id'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'qty'         => ['required', 'integer', 'min:1'],
+            'unit_cost'   => ['nullable', 'numeric', 'min:0'],
+            'notes'       => ['nullable', 'string', 'max:500'],
+        ];
+    }
+}
+
+===== FILE: resources\views\stocker\shipment-logs.blade.php =====
+
+@extends('layouts.stocker')
+
+@section('title', 'Shipment Logs')
+
+@section('content')
+
+<x-page-header title="Shipment Logs" subtitle="All stock-in deliveries" />
+
+<form method="GET" class="card p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <x-filter-select
+            name="supplier"
+            :options="$suppliers->pluck('name', 'id')->toArray()"
+            placeholder="All Suppliers"
+        />
+        <div>
+            <input type="date" name="from" value="{{ request('from') }}" class="input" placeholder="From">
+        </div>
+        <div>
+            <input type="date" name="to" value="{{ request('to') }}" class="input" placeholder="To">
+        </div>
+        <div class="md:col-span-2 flex gap-2">
+            <button type="submit" class="btn-primary">Filter</button>
+            <a href="{{ route('stocker.shipment-logs') }}" class="btn-secondary">Reset</a>
+        </div>
+    </div>
+</form>
+
+@if($logs->isEmpty())
+    <x-empty-state title="No shipments found" message="Try adjusting your filters or record a new stock-in." />
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Supplier</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Recorded by</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Qty</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Stock After</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Unit Cost</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($logs as $log)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 text-xs text-slate-500">
+                            {{ $log->created_at->format('M d, Y g:i A') }}
+                        </td>
+                        <td class="px-4 py-3 text-sm font-medium text-slate-800">
+                            {{ $log->product->name ?? '—' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-600">{{ $log->supplier->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600">{{ $log->user->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-right text-sm font-mono text-emerald-700">
+                            +{{ $log->qty }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm text-slate-600">{{ $log->stock_after }}</td>
+                        <td class="px-4 py-3 text-right text-sm">
+                            @if($log->unit_cost)
+                                <x-money :amount="$log->unit_cost" />
+                            @else
+                                <span class="text-slate-500">—</span>
+                            @endif
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <x-pagination :paginator="$logs" />
+@endif
+
+@endsection
