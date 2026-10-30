@@ -122,3 +122,13 @@ nav[role='navigation'] [aria-current='page'] > span {
     .no-print { display: none !important; }
     body { background: white !important; }
 }
+
+/* Hides the scrollbar but keeps scrolling working (used by the sidebar menu) */
+.no-scrollbar {
+    -ms-overflow-style: none;   /* old Microsoft browsers */
+    scrollbar-width: none;      /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;              /* Chrome, Edge, Safari */
+}

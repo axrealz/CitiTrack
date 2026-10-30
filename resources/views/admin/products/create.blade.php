@@ -14,7 +14,7 @@
 
             <x-form-input name="name" label="Product Name" :value="old('name')" required />
 
-            <x-form-input name="sku" label="SKU (optional)" :value="old('sku')" hint="Leave blank for auto or custom code" />
+            <x-form-input name="sku" label="SKU" :value="old('sku')" hint="Leave blank for auto or custom code" />
 
             <x-form-select
                 name="category_id"
@@ -26,10 +26,10 @@
 
             <x-form-select
                 name="supplier_id"
-                label="Preferred Supplier (optional)"
+                label="Preferred Supplier"
                 :options="$suppliers->pluck('name', 'id')->toArray()"
                 :value="old('supplier_id')"
-                placeholder="-- None --"
+                placeholder="-- Select Supplier --"
             />
 
             <x-form-input name="cost" label="Cost (₱)" type="number" step="0.01" min="0" :value="old('cost', 0)" required />

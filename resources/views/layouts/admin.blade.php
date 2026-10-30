@@ -14,37 +14,37 @@
     {{-- Sidebar --}}
     <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col no-print h-screen">
 
-        <div class="px-5 py-5 border-b border-slate-800">
+        <div class="px-5 py-4 border-b border-slate-800">
             <div class="font-bold text-white leading-tight">CitiTrack</div>
             <div class="text-xs text-indigo-400 uppercase tracking-wide">Admin</div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm">
+        <nav class="no-scrollbar flex-1 overflow-y-auto px-3 py-2 space-y-0.5 text-sm">
 
             <x-sidebar-link route="admin.dashboard" icon="home" label="Dashboard" />
 
-            <div class="px-3 pt-4 pb-1 text-xs uppercase text-slate-400 tracking-wider">Catalog</div>
+            <div class="px-3 pt-3 pb-0.5 text-xs uppercase text-slate-400 tracking-wider">Catalog</div>
             <x-sidebar-link route="admin.products.index"   icon="cube"  label="Products" />
             <x-sidebar-link route="admin.categories.index" icon="tag"   label="Categories" />
             <x-sidebar-link route="admin.suppliers.index"  icon="truck" label="Suppliers" />
 
-            <div class="px-3 pt-4 pb-1 text-xs uppercase text-slate-400 tracking-wider">Approvals</div>
+            <div class="px-3 pt-3 pb-0.5 text-xs uppercase text-slate-400 tracking-wider">Approvals</div>
             <x-sidebar-link route="admin.voids.index"       icon="ban"    label="Void Requests" />
             <x-sidebar-link route="admin.adjustments.index" icon="adjust" label="Adjustments" />
 
-            <div class="px-3 pt-4 pb-1 text-xs uppercase text-slate-400 tracking-wider">Operations</div>
+            <div class="px-3 pt-3 pb-0.5 text-xs uppercase text-slate-400 tracking-wider">Operations</div>
             <x-sidebar-link route="admin.users.index"      icon="users" label="Staff" />
             <x-sidebar-link route="admin.audit-logs.index" icon="log"   label="Action Logs" />
 
-            <div class="px-3 pt-4 pb-1 text-xs uppercase text-slate-400 tracking-wider">Insights</div>
+            <div class="px-3 pt-3 pb-0.5 text-xs uppercase text-slate-400 tracking-wider">Insights</div>
             <x-sidebar-link route="admin.reports.index" icon="chart" label="Reports" />
 
         </nav>
 
-        <div class="px-4 py-3 border-t border-slate-800 text-sm">
+        <div class="px-4 py-2.5 border-t border-slate-800 text-sm">
             <div class="text-white font-medium">{{ auth()->user()->name }}</div>
             <div class="text-xs text-slate-400 truncate">{{ auth()->user()->email }}</div>
-            <div class="mt-3 flex gap-4 text-sm">
+            <div class="mt-2 flex gap-4 text-sm">
                 <a href="{{ route('profile.edit') }}"
                    class="text-slate-300 hover:text-amber-400 font-medium transition">
                     Profile
