@@ -1,10 +1,10 @@
 @extends('layouts.admin')
 
-@section('title', 'Daily Sales Report')
+@section('title', 'Sales Report')
 
 @section('content')
 
-<x-page-header title="Daily Sales Report" subtitle="Totals per day over a selected range" />
+<x-page-header title="Sales Report" subtitle="Totals per day over a selected range" />
 
 <form method="GET" class="card p-4 mb-4">
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3">

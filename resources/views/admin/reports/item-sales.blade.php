@@ -18,6 +18,10 @@
         </div>
         <div class="flex items-end gap-2 md:col-span-2">
             <button type="submit" class="btn-primary">Apply</button>
+            <a href="{{ route('admin.export.item-sales', ['from' => $from, 'to' => $to]) }}"
+                class="btn-secondary" target="_blank">
+                🖨 Print / PDF
+            </a>
         </div>
     </div>
 </form>

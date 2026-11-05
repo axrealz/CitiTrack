@@ -104,6 +104,7 @@ Route::prefix('admin')
         Route::get('/inventory',   [\App\Http\Controllers\Admin\ExportController::class, 'inventory'])->name('inventory');
         Route::get('/staff',       [\App\Http\Controllers\Admin\ExportController::class, 'staff'])->name('staff');
         Route::get('/financial',   [\App\Http\Controllers\Admin\ExportController::class, 'financial'])->name('financial');
+                Route::get('/item-sales',  [\App\Http\Controllers\Admin\ExportController::class, 'itemSales'])->name('item-sales');
     });
 });
 
@@ -160,6 +161,8 @@ Route::prefix('stocker')
     /* ── Stock-in ── */
     Route::get('/stock-in',  [\App\Http\Controllers\Stocker\StockInController::class, 'index'])->name('stock-in.index');
     Route::post('/stock-in', [\App\Http\Controllers\Stocker\StockInController::class, 'store'])->name('stock-in.store');
+        Route::get('/stock-in/{stockLog}/edit', [\App\Http\Controllers\Stocker\StockInController::class, 'edit'])->name('stock-in.edit');
+    Route::put('/stock-in/{stockLog}',      [\App\Http\Controllers\Stocker\StockInController::class, 'update'])->name('stock-in.update');
 
     /* ── Products (view + edit stock only) ── */
     Route::get('/products',           [\App\Http\Controllers\Stocker\ProductController::class, 'index'])->name('products.index');

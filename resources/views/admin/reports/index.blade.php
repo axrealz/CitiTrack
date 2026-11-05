@@ -12,7 +12,7 @@
         <div class="flex items-start gap-4">
             <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl">📅</div>
             <div>
-                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Daily Sales</div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Sales Report</div>
                 <div class="text-xs text-slate-500 mt-1">Totals per day over a date range</div>
             </div>
         </div>

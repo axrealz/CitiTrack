@@ -35,6 +35,12 @@
     </tbody>
 </table>
 
+@if(filled($transaction->notes))
+    <div class="line"></div>
+    <div class="bold">Notes:</div>
+    <div style="font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere;">{{ $transaction->notes }}</div>
+@endif
+
 <div class="line"></div>
 
 <table class="totals">

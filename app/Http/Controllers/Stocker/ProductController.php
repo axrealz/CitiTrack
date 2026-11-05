@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Stocker;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\Search;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -16,12 +17,7 @@ class ProductController extends Controller
     {
         $query = Product::with(['category', 'supplier']);
 
-        if ($search = $request->get('q')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
-            });
-        }
+        Search::apply($query, $request->get('q'), ['name', 'sku']);
 
         if ($category = $request->get('category')) {
             $query->where('category_id', $category);

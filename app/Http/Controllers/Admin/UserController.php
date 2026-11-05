@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Support\Search;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -17,12 +18,7 @@ class UserController extends Controller
     {
         $query = User::query();
 
-        if ($search = $request->get('q')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
+        Search::apply($query, $request->get('q'), ['name', 'email']);
 
         if ($role = $request->get('role')) {
             $query->where('role', $role);

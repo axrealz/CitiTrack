@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Models\TransactionItem;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ExportController extends Controller
@@ -26,6 +28,32 @@ class ExportController extends Controller
             ->get();
 
         return view('reports.print-sales', compact('sales', 'from', 'to'));
+    }
+
+    /**
+     * Print-ready item-level sales report.
+     * Same query as the on-screen report, but every item (not paginated).
+     */
+    public function itemSales(Request $request): View
+    {
+        $from = $request->get('from', now()->startOfMonth()->toDateString());
+        $to   = $request->get('to', now()->toDateString());
+
+        $items = TransactionItem::whereHas('transaction', function ($q) use ($from, $to) {
+                $q->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+                  ->where('status', 'completed');
+            })
+            ->select(
+                'product_id',
+                'product_name',
+                DB::raw('SUM(qty) as total_qty'),
+                DB::raw('SUM(subtotal) as total_sales')
+            )
+            ->groupBy('product_id', 'product_name')
+            ->orderByDesc('total_sales')
+            ->get();
+
+        return view('reports.print-item-sales', compact('items', 'from', 'to'));
     }
 
     /**

@@ -18,11 +18,12 @@
                     placeholder="Search product by name or SKU..."
                     class="input flex-1"
                     autofocus
+                    autocomplete="off"
+                    data-live-search
                 >
-                <button type="submit" class="btn-primary">Search</button>
-                @if($search)
-                    <a href="{{ route('cashier.pos') }}" class="btn-secondary">Clear</a>
-                @endif
+                <button type="submit" class="btn-primary" data-live-search-button>Search</button>
+                <a href="{{ route('cashier.pos') }}" data-live-clear
+                   class="btn-secondary @unless($search) hidden @endunless">Clear</a>
             </div>
         </form>
 
@@ -137,8 +138,8 @@
                     </div>
 
                     <div>
-                        <label class="label">Notes (optional)</label>
-                        <input type="text" name="notes" value="{{ old('notes') }}" class="input" maxlength="500">
+                        <label class="label" for="checkout-notes">Notes (optional)</label>
+                        <textarea id="checkout-notes" name="notes" rows="2" class="input" maxlength="500">{{ old('notes') }}</textarea>
                     </div>
 
                     <x-confirm-submit
@@ -153,6 +154,11 @@
                             <div class="flex justify-between"><dt>Total</dt><dd class="font-semibold"><x-money :amount="$subtotal" /></dd></div>
                             <div class="flex justify-between"><dt>Payment method</dt><dd class="font-medium" x-text="labels.payment_method"></dd></div>
                             <div class="flex justify-between"><dt>Amount paid</dt><dd class="font-medium" x-text="'₱' + Number(vals.amount_paid || 0).toFixed(2)"></dd></div>
+                            <div class="border-t border-slate-200 pt-2" x-show="(vals.notes || '').trim() !== ''">
+                                <dt>Notes</dt>
+                                <dd class="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words font-medium"
+                                    x-text="(vals.notes || '').replace(/\r\n?/g, '\n')"></dd>
+                            </div>
                         </dl>
                     </x-confirm-submit>
                 </form>

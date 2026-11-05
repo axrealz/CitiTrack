@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSupplierRequest;
 use App\Models\AuditLog;
 use App\Models\Supplier;
+use App\Support\Search;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,11 +17,7 @@ class SupplierController extends Controller
     {
         $query = Supplier::withCount('products');
 
-        if ($search = $request->get('q')) {
-            $query->where('name', 'like', "%{$search}%")
-                  ->orWhere('contact_person', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%");
-        }
+        Search::apply($query, $request->get('q'), ['name', 'contact_person', 'city']);
 
         $suppliers = $query->latest()->paginate(15)->withQueryString();
 

@@ -76,6 +76,7 @@
             </div>
 
             <main class="p-6">
+                <x-back-button />
                 @yield('content')
             </main>
         </div>

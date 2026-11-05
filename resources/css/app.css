@@ -132,3 +132,8 @@ nav[role='navigation'] [aria-current='page'] > span {
 .no-scrollbar::-webkit-scrollbar {
     display: none;              /* Chrome, Edge, Safari */
 }
+/* Live search: results dim slightly while they are being refreshed */
+.live-search-busy {
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+}

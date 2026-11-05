@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cashier;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Support\Search;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -24,9 +25,7 @@ class SalesHistoryController extends Controller
         }
 
         // Search by reference number
-        if ($search = $request->get('q')) {
-            $query->where('reference_no', 'like', "%{$search}%");
-        }
+        Search::apply($query, $request->get('q'), ['reference_no']);
 
         $transactions = $query->latest()->paginate(15)->withQueryString();
 

@@ -1,0 +1,935 @@
+
+===== FILE: resources\views\admin\reports\daily-sales.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Daily Sales Report')
+
+@section('content')
+
+<x-page-header title="Daily Sales Report" subtitle="Totals per day over a selected range" />
+
+<form method="GET" class="card p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+            <label class="label">From</label>
+            <input type="date" name="from" value="{{ $from }}" class="input">
+        </div>
+        <div>
+            <label class="label">To</label>
+            <input type="date" name="to" value="{{ $to }}" class="input">
+        </div>
+        <div class="flex items-end gap-2 md:col-span-2">
+            <button type="submit" class="btn-primary">Apply</button>
+            <a href="{{ route('admin.export.sales', ['from' => $from, 'to' => $to]) }}"
+                class="btn-secondary" target="_blank">
+                🖨 Print / PDF
+            </a>
+        </div>
+    </div>
+</form>
+
+@if($sales->isEmpty())
+    <x-empty-state title="No sales in this range" message="Try a different date range." />
+@else
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <x-stat-card
+            label="Total Revenue"
+            value="₱{{ number_format($sales->sum('total'), 2) }}"
+            icon="💰"
+            accent="emerald"
+        />
+        <x-stat-card
+            label="Total Transactions"
+            :value="$sales->sum('count')"
+            icon="🧾"
+            accent="indigo"
+        />
+        <x-stat-card
+            label="Days Covered"
+            :value="$sales->count()"
+            icon="📅"
+            accent="sky"
+        />
+    </div>
+
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Transactions</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Revenue</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Average Sale</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($sales as $row)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 text-sm text-slate-700">
+                            {{ \Carbon\Carbon::parse($row->date)->format('M d, Y (D)') }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm">{{ $row->count }}</td>
+                        <td class="px-4 py-3 text-right text-sm font-medium">
+                            <x-money :amount="$row->total" />
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm text-slate-600">
+                            <x-money :amount="$row->count > 0 ? $row->total / $row->count : 0" />
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot class="bg-slate-50 border-t border-slate-200">
+                <tr>
+                    <td class="px-4 py-3 text-sm font-semibold text-slate-700">Total</td>
+                    <td class="px-4 py-3 text-right text-sm font-semibold">{{ $sales->sum('count') }}</td>
+                    <td class="px-4 py-3 text-right text-sm font-semibold">
+                        <x-money :amount="$sales->sum('total')" />
+                    </td>
+                    <td class="px-4 py-3"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+@endif
+
+@endsection
+
+===== FILE: resources\views\admin\reports\financial.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Financial Report')
+
+@section('content')
+
+<x-page-header title="Financial Report" subtitle="Revenue, profit, and payment mix">
+    <x-slot:actions>
+        <a href="{{ route('admin.export.financial', ['from' => $from, 'to' => $to]) }}" target="_blank" class="btn-secondary">🖨 Print / PDF</a>
+    </x-slot:actions>
+</x-page-header>
+
+<form method="GET" class="card p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+            <label class="label">From</label>
+            <input type="date" name="from" value="{{ $from }}" class="input">
+        </div>
+        <div>
+            <label class="label">To</label>
+            <input type="date" name="to" value="{{ $to }}" class="input">
+        </div>
+        <div class="flex items-end gap-2 md:col-span-2">
+            <button type="submit" class="btn-primary">Apply</button>
+        </div>
+    </div>
+</form>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <x-stat-card
+        label="Total Revenue"
+        value="₱{{ number_format($revenue, 2) }}"
+        icon="💰"
+        accent="emerald"
+    />
+
+    <x-stat-card
+        label="Gross Profit"
+        value="₱{{ number_format($profit, 2) }}"
+        icon="📈"
+        accent="indigo"
+    />
+
+    <x-stat-card
+        label="Transactions"
+        :value="$salesCount"
+        icon="🧾"
+        accent="sky"
+    />
+
+    <x-stat-card
+        label="Avg. Sale"
+        value="₱{{ number_format($salesCount > 0 ? $revenue / $salesCount : 0, 2) }}"
+        icon="📊"
+        accent="amber"
+    />
+
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+    <x-section-card title="Payment Breakdown">
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    <span class="text-sm text-slate-700">Cash</span>
+                </div>
+                <x-money :amount="$cashTotal" class="font-medium" />
+            </div>
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
+                    <span class="text-sm text-slate-700">GCash</span>
+                </div>
+                <x-money :amount="$gcashTotal" class="font-medium" />
+            </div>
+            <div class="pt-4 border-t border-slate-200 flex justify-between items-center">
+                <span class="text-sm font-semibold text-slate-800">Total</span>
+                <x-money :amount="$cashTotal + $gcashTotal" class="font-bold" />
+            </div>
+        </div>
+    </x-section-card>
+
+    <x-section-card title="Profit Summary">
+        <div class="space-y-4">
+            <div class="flex justify-between">
+                <span class="text-sm text-slate-600">Revenue</span>
+                <x-money :amount="$revenue" class="font-medium" />
+            </div>
+            <div class="flex justify-between">
+                <span class="text-sm text-slate-600">Gross Profit</span>
+                <x-money :amount="$profit" class="font-medium text-emerald-700" />
+            </div>
+            <div class="flex justify-between">
+                <span class="text-sm text-slate-600">Margin</span>
+                <span class="text-sm font-medium">
+                    {{ $revenue > 0 ? number_format(($profit / $revenue) * 100, 2) : '0.00' }}%
+                </span>
+            </div>
+        </div>
+    </x-section-card>
+
+</div>
+
+@endsection
+
+===== FILE: resources\views\admin\reports\index.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Reports')
+
+@section('content')
+
+<x-page-header title="Reports" subtitle="Analytics and operational insights" />
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+    <a href="{{ route('admin.reports.daily-sales') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl">📅</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Daily Sales</div>
+                <div class="text-xs text-slate-500 mt-1">Totals per day over a date range</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ route('admin.reports.item-sales') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl">🏆</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Item-Level Sales</div>
+                <div class="text-xs text-slate-500 mt-1">Best-selling products by qty and revenue</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ route('admin.reports.products') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center text-2xl">📦</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Products</div>
+                <div class="text-xs text-slate-500 mt-1">Full product catalog with pricing</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ route('admin.reports.inventory-summary') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-2xl">📊</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Inventory Summary</div>
+                <div class="text-xs text-slate-500 mt-1">Stock value and quantity snapshot</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ route('admin.reports.low-stock') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-2xl">⚠️</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Low Stock</div>
+                <div class="text-xs text-slate-500 mt-1">Items at or below reorder level</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ route('admin.reports.financial') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl">💰</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Financial</div>
+                <div class="text-xs text-slate-500 mt-1">Revenue, profit, cash vs GCash split</div>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ route('admin.reports.staff') }}" class="card p-5 hover:shadow-md transition group">
+        <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl">👥</div>
+            <div>
+                <div class="font-semibold text-slate-800 group-hover:text-amber-600">Staff Activity</div>
+                <div class="text-xs text-slate-500 mt-1">Transactions per cashier</div>
+            </div>
+        </div>
+    </a>
+
+</div>
+
+@endsection
+
+===== FILE: resources\views\admin\reports\inventory-summary.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Inventory Summary')
+
+@section('content')
+
+<x-page-header title="Inventory Summary" subtitle="Stock value and quantity snapshot">
+    <x-slot:actions>
+        <a href="{{ route('admin.export.inventory') }}" target="_blank" class="btn-secondary">🖨 Print / PDF</a>
+    </x-slot:actions>
+</x-page-header>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <x-stat-card
+        label="Total Stock Value (at cost)"
+        value="₱{{ number_format($totalStockValue, 2) }}"
+        icon="💰"
+        accent="emerald"
+    />
+    <x-stat-card
+        label="Distinct Products"
+        :value="$products->total()"
+        icon="📦"
+        accent="indigo"
+    />
+    <x-stat-card
+        label="Low-Stock Items"
+        :value="$products->where('stock_qty', '<=', 5)->count()"
+        icon="⚠️"
+        accent="amber"
+    />
+</div>
+
+<div class="card overflow-hidden">
+    <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Category</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Stock</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Cost</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Value</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+            @foreach($products as $product)
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3 text-sm font-medium text-slate-800">{{ $product->name }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-600">{{ $product->category->name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-right text-sm">
+                        <span class="{{ $product->isLowStock() ? 'text-amber-700 font-semibold' : '' }}">
+                            {{ $product->stock_qty }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right text-sm"><x-money :amount="$product->cost" /></td>
+                    <td class="px-4 py-3 text-right text-sm font-medium">
+                        <x-money :amount="$product->stock_qty * $product->cost" />
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+
+<x-pagination :paginator="$products" />
+
+@endsection
+
+===== FILE: resources\views\admin\reports\item-sales.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Item-Level Sales')
+
+@section('content')
+
+<x-page-header title="Item-Level Sales" subtitle="Best-selling products in the selected range" />
+
+<form method="GET" class="card p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+            <label class="label">From</label>
+            <input type="date" name="from" value="{{ $from }}" class="input">
+        </div>
+        <div>
+            <label class="label">To</label>
+            <input type="date" name="to" value="{{ $to }}" class="input">
+        </div>
+        <div class="flex items-end gap-2 md:col-span-2">
+            <button type="submit" class="btn-primary">Apply</button>
+        </div>
+    </div>
+</form>
+
+@if($items->isEmpty())
+    <x-empty-state title="No sales in this range" />
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Qty Sold</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Revenue</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($items as $item)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 text-sm text-slate-800 font-medium">{{ $item->product_name }}</td>
+                        <td class="px-4 py-3 text-right text-sm">{{ $item->total_qty }}</td>
+                        <td class="px-4 py-3 text-right text-sm font-medium">
+                            <x-money :amount="$item->total_sales" />
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <x-pagination :paginator="$items" />
+@endif
+
+@endsection
+
+===== FILE: resources\views\admin\reports\low-stock.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Low Stock Report')
+
+@section('content')
+
+<x-page-header title="Low Stock Report" subtitle="Items at or below reorder level">
+    <x-slot:actions>
+        <a href="{{ route('admin.export.inventory') }}" target="_blank" class="btn-secondary">🖨 Print / PDF</a>
+    </x-slot:actions>
+</x-page-header>
+
+@if($products->isEmpty())
+    <x-empty-state title="No low-stock items" message="All products are above their reorder levels." />
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Category</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Preferred Supplier</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Stock</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Reorder Level</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Shortage</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($products as $product)
+                    <tr class="hover:bg-amber-50">
+                        <td class="px-4 py-3 text-sm font-medium text-slate-800">{{ $product->name }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600">{{ $product->category->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600">
+                            {{ $product->supplier->name ?? '— Not assigned —' }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm font-semibold text-amber-700">
+                            {{ $product->stock_qty }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm text-slate-600">
+                            {{ $product->reorder_level }}
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm font-mono text-red-600">
+                            -{{ $product->reorder_level - $product->stock_qty }}
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+@endif
+
+@endsection
+
+===== FILE: resources\views\admin\reports\products.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Products Report')
+
+@section('content')
+
+<x-page-header title="Products Report" subtitle="Full product catalog snapshot">
+    <x-slot:actions>
+        <a href="{{ route('admin.export.inventory') }}" target="_blank" class="btn-secondary">🖨 Print / PDF</a>
+    </x-slot:actions>
+</x-page-header>
+
+<div class="card overflow-hidden">
+    <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Category</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Supplier</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Cost</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Price</th>
+                <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Stock</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+            @foreach($products as $product)
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3 text-sm text-slate-800 font-medium">{{ $product->name }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-600">{{ $product->category->name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-600">{{ $product->supplier->name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-right text-sm"><x-money :amount="$product->cost" /></td>
+                    <td class="px-4 py-3 text-right text-sm font-medium"><x-money :amount="$product->price" /></td>
+                    <td class="px-4 py-3 text-right text-sm">
+                        <span class="{{ $product->isLowStock() ? 'text-amber-700 font-semibold' : '' }}">
+                            {{ $product->stock_qty }}
+                        </span>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+
+<x-pagination :paginator="$products" />
+
+@endsection
+
+===== FILE: resources\views\admin\reports\staff.blade.php =====
+
+@extends('layouts.admin')
+
+@section('title', 'Staff Activity Report')
+
+@section('content')
+
+<x-page-header title="Staff Activity Report" subtitle="Transactions processed per staff member">
+    <x-slot:actions>
+        <a href="{{ route('admin.export.staff', ['from' => $from, 'to' => $to]) }}" target="_blank" class="btn-secondary">🖨 Print / PDF</a>
+    </x-slot:actions>
+</x-page-header>
+
+<form method="GET" class="card p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+            <label class="label">From</label>
+            <input type="date" name="from" value="{{ $from }}" class="input">
+        </div>
+        <div>
+            <label class="label">To</label>
+            <input type="date" name="to" value="{{ $to }}" class="input">
+        </div>
+        <div class="flex items-end gap-2 md:col-span-2">
+            <button type="submit" class="btn-primary">Apply</button>
+        </div>
+    </div>
+</form>
+
+@if($staff->isEmpty())
+    <x-empty-state title="No staff found" />
+@else
+    <div class="card overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Role</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Transactions</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Total Sales</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                @foreach($staff as $person)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 text-sm font-medium text-slate-800">{{ $person->name }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            @php
+                                $roleColors = ['admin' => 'indigo', 'cashier' => 'emerald', 'stocker' => 'sky'];
+                            @endphp
+                            <x-badge :color="$roleColors[$person->role] ?? 'slate'">
+                                {{ ucfirst($person->role) }}
+                            </x-badge>
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm">{{ $person->transactions_count ?? 0 }}</td>
+                        <td class="px-4 py-3 text-right text-sm font-medium">
+                            <x-money :amount="$person->transactions_sum_total ?? 0" />
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+@endif
+
+@endsection
+
+===== FILE: resources\views\reports\print-financial.blade.php =====
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Financial Report — {{ $from }} to {{ $to }}</title>
+    @include('reports._print-styles')
+</head>
+<body>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button onclick="window.close()">Close</button>
+</div>
+
+<div class="header">
+    <h1>CitiTrack — Financial Report</h1>
+    <p class="sub">Citi Power Electronic Supply</p>
+    <p class="sub">Period: {{ \Carbon\Carbon::parse($from)->format('M d, Y') }} to {{ \Carbon\Carbon::parse($to)->format('M d, Y') }}</p>
+    <p class="sub">Generated: {{ now()->format('M d, Y g:i A') }}</p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Metric</th>
+            <th class="num">Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Total Revenue</td>       <td class="num">₱{{ number_format($revenue, 2) }}</td></tr>
+        <tr><td>Gross Profit</td>        <td class="num">₱{{ number_format($profit, 2) }}</td></tr>
+        <tr><td>Margin</td>              <td class="num">{{ $revenue > 0 ? number_format(($profit / $revenue) * 100, 2) : '0.00' }}%</td></tr>
+        <tr><td>Transaction Count</td>   <td class="num">{{ $count }}</td></tr>
+        <tr><td>Average Sale</td>        <td class="num">₱{{ number_format($count > 0 ? $revenue / $count : 0, 2) }}</td></tr>
+    </tbody>
+</table>
+
+<h2 style="font-size: 14px; margin-top: 24px;">Payment Breakdown</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Method</th>
+            <th class="num">Amount</th>
+            <th class="num">Share</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Cash</td>
+            <td class="num">₱{{ number_format($cashTotal, 2) }}</td>
+            <td class="num">{{ $revenue > 0 ? number_format(($cashTotal / $revenue) * 100, 2) : '0.00' }}%</td>
+        </tr>
+        <tr>
+            <td>GCash</td>
+            <td class="num">₱{{ number_format($gcashTotal, 2) }}</td>
+            <td class="num">{{ $revenue > 0 ? number_format(($gcashTotal / $revenue) * 100, 2) : '0.00' }}%</td>
+        </tr>
+        <tr class="totals">
+            <td>Total</td>
+            <td class="num">₱{{ number_format($cashTotal + $gcashTotal, 2) }}</td>
+            <td class="num">100.00%</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="footer">
+    <p>— End of Report —</p>
+</div>
+
+</body>
+</html>
+
+===== FILE: resources\views\reports\print-inventory.blade.php =====
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Inventory Summary</title>
+    @include('reports._print-styles')
+</head>
+<body>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button onclick="window.close()">Close</button>
+</div>
+
+<div class="header">
+    <h1>CitiTrack — Inventory Summary</h1>
+    <p class="sub">Citi Power Electronic Supply</p>
+    <p class="sub">Generated: {{ now()->format('M d, Y g:i A') }}</p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>SKU</th>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Supplier</th>
+            <th class="num">Cost</th>
+            <th class="num">Price</th>
+            <th class="num">Stock</th>
+            <th class="num">Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($products as $p)
+            <tr>
+                <td>{{ $p->sku ?? '—' }}</td>
+                <td>{{ $p->name }}</td>
+                <td>{{ $p->category->name ?? '—' }}</td>
+                <td>{{ $p->supplier->name ?? '—' }}</td>
+                <td class="num">{{ number_format($p->cost, 2) }}</td>
+                <td class="num">{{ number_format($p->price, 2) }}</td>
+                <td class="num">{{ $p->stock_qty }}</td>
+                <td class="num">{{ number_format($p->stock_qty * $p->cost, 2) }}</td>
+            </tr>
+        @endforeach
+    </tbody>
+    <tfoot>
+        <tr class="totals">
+            <td colspan="7">Total Stock Value</td>
+            <td class="num">₱{{ number_format($totalValue, 2) }}</td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="footer">
+    <p>— End of Report —</p>
+</div>
+
+</body>
+</html>
+
+===== FILE: resources\views\reports\print-sales.blade.php =====
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Sales Report — {{ $from }} to {{ $to }}</title>
+    @include('reports._print-styles')
+</head>
+<body>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button onclick="window.close()">Close</button>
+</div>
+
+<div class="header">
+    <h1>CitiTrack — Sales Report</h1>
+    <p class="sub">Citi Power Electronic Supply</p>
+    <p class="sub">Period: {{ \Carbon\Carbon::parse($from)->format('M d, Y') }} to {{ \Carbon\Carbon::parse($to)->format('M d, Y') }}</p>
+    <p class="sub">Generated: {{ now()->format('M d, Y g:i A') }}</p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Reference</th>
+            <th>Date</th>
+            <th>Cashier</th>
+            <th class="num">Subtotal</th>
+            <th class="num">Discount</th>
+            <th class="num">Total</th>
+            <th>Payment</th>
+        </tr>
+    </thead>
+    <tbody>
+        @forelse($sales as $tx)
+            <tr>
+                <td>{{ $tx->reference_no }}</td>
+                <td>{{ $tx->created_at->format('Y-m-d H:i') }}</td>
+                <td>{{ $tx->cashier->name ?? '—' }}</td>
+                <td class="num">{{ number_format($tx->subtotal, 2) }}</td>
+                <td class="num">{{ number_format($tx->discount, 2) }}</td>
+                <td class="num">{{ number_format($tx->total, 2) }}</td>
+                <td>{{ strtoupper($tx->payment_method) }}</td>
+            </tr>
+        @empty
+            <tr><td colspan="7" class="empty">No records found for this period.</td></tr>
+        @endforelse
+    </tbody>
+    <tfoot>
+        <tr class="totals">
+            <td colspan="5">Total Revenue</td>
+            <td class="num">₱{{ number_format($sales->sum('total'), 2) }}</td>
+            <td></td>
+        </tr>
+        <tr class="totals">
+            <td colspan="5">Transactions</td>
+            <td class="num">{{ $sales->count() }}</td>
+            <td></td>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="footer">
+    <p>— End of Report —</p>
+</div>
+
+</body>
+</html>
+
+===== FILE: resources\views\reports\print-staff.blade.php =====
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Staff Activity — {{ $from }} to {{ $to }}</title>
+    @include('reports._print-styles')
+</head>
+<body>
+
+<div class="no-print">
+    <button onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button onclick="window.close()">Close</button>
+</div>
+
+<div class="header">
+    <h1>CitiTrack — Staff Activity Report</h1>
+    <p class="sub">Citi Power Electronic Supply</p>
+    <p class="sub">Period: {{ \Carbon\Carbon::parse($from)->format('M d, Y') }} to {{ \Carbon\Carbon::parse($to)->format('M d, Y') }}</p>
+    <p class="sub">Generated: {{ now()->format('M d, Y g:i A') }}</p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th class="num">Transactions</th>
+            <th class="num">Total Sales</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        @forelse($staff as $person)
+            <tr>
+                <td>{{ $person->name }}</td>
+                <td>{{ $person->email }}</td>
+                <td>{{ ucfirst($person->role) }}</td>
+                <td class="num">{{ $person->transactions_count ?? 0 }}</td>
+                <td class="num">{{ number_format($person->transactions_sum_total ?? 0, 2) }}</td>
+                <td>{{ $person->is_active ? 'Active' : 'Inactive' }}</td>
+            </tr>
+        @empty
+            <tr><td colspan="6" class="empty">No staff found.</td></tr>
+        @endforelse
+    </tbody>
+</table>
+
+<div class="footer">
+    <p>— End of Report —</p>
+</div>
+
+</body>
+</html>
+
+===== FILE: resources\views\reports\_print-styles.blade.php =====
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        padding: 24px;
+        font-size: 12px;
+        color: #111;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .header { margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 12px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 14px; margin: 0; }
+    .sub { color: #555; margin: 2px 0; font-size: 11px; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    th, td {
+        border: 1px solid #ccc;
+        padding: 6px 8px;
+        text-align: left;
+        vertical-align: top;
+    }
+    th {
+        background: #f0f0f0;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.5px;
+    }
+    td.num, th.num { text-align: right; }
+    tfoot .totals td {
+        background: #f9f9f9;
+        font-weight: bold;
+    }
+    .empty {
+        text-align: center;
+        color: #888;
+        padding: 20px;
+    }
+    .footer {
+        margin-top: 30px;
+        text-align: center;
+        color: #888;
+        font-size: 10px;
+    }
+
+    /* Print-only behavior */
+    @media print {
+        body { padding: 0; max-width: none; }
+        .no-print { display: none !important; }
+        table { page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+        thead { display: table-header-group; }
+    }
+
+    /* Screen-only print buttons */
+    .no-print {
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px dashed #ccc;
+    }
+    .no-print button {
+        padding: 8px 16px;
+        font-size: 13px;
+        cursor: pointer;
+        margin-right: 8px;
+        border: 1px solid #333;
+        background: #fff;
+        border-radius: 4px;
+    }
+    .no-print button:hover { background: #f3f4f6; }
+</style>

@@ -10,6 +10,7 @@ use App\Models\StockLog;
 use App\Models\Transaction;
 use App\Models\TransactionItem;
 use App\Services\CartService;
+use App\Support\Search;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,12 +29,7 @@ class POSController extends Controller
 
         $products = Product::active()
             ->where('stock_qty', '>', 0)
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('sku', 'like', "%{$search}%");
-                });
-            })
+            ->when($search, fn ($q) => Search::apply($q, $search, ['name', 'sku']))
             ->orderBy('name')
             ->limit(24)
             ->get();
@@ -147,7 +143,9 @@ class POSController extends Controller
                 'amount_paid'    => $amountPaid,
                 'change_due'     => $amountPaid - $total,
                 'status'         => 'completed',
-                'notes'          => $request->input('notes'),
+                'notes'          => filled($request->input('notes'))
+                                        ? trim(str_replace("\r\n", "\n", $request->input('notes')))
+                                        : null,
             ]);
 
             // Save line items + deduct stock

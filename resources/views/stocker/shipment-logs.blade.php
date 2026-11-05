@@ -46,6 +46,8 @@
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Balance</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Status</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Reference</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Notes</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
@@ -107,6 +109,11 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 text-xs text-slate-600 font-mono">{{ $log->reference_no ?? '—' }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-700 max-w-xs whitespace-pre-line break-words">{{ $log->reason ?? '—' }}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <a href="{{ route('stocker.stock-in.edit', $log) }}"
+                               class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Update</a>
+                        </td>
                     </tr>
                 @endforeach
             </tbody>

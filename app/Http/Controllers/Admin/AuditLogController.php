@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Support\Search;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -13,9 +14,7 @@ class AuditLogController extends Controller
     {
         $query = AuditLog::with('user');
 
-        if ($search = $request->get('q')) {
-            $query->where('action', 'like', "%{$search}%");
-        }
+        Search::apply($query, $request->get('q'), ['action']);
 
         if ($action = $request->get('action')) {
             $query->where('action', $action);

@@ -142,4 +142,165 @@ Alpine.data('stockInForm', (initial = {}) => ({
     },
 }));
 
+/*
+| Back button (see components/back-button.blade.php)
+| Uses the browser history when the user came from another CitiTrack page.
+| Otherwise the link's own href is followed: a safe page in the same section.
+| History is NOT used when the previous page was this same page (e.g. after a
+| validation error or a filter), a create/edit form (e.g. just after saving),
+| a login page, or another website.
+*/
+window.citiTrackBack = function (event, link) {
+    try {
+        if (document.referrer) {
+            const ref = new URL(document.referrer);
+            const here = new URL(window.location.href);
+
+            const sameSite = ref.origin === here.origin;
+            const samePage = ref.pathname === here.pathname;
+            const fromForm = /\/(create|edit)(\/|$)/.test(ref.pathname);
+            const fromAuth = /^\/(login|register|forgot-password|reset-password|confirm-password|verify-email)(\/|$)/.test(ref.pathname);
+
+            if (sameSite && !samePage && !fromForm && !fromAuth && window.history.length > 1) {
+                event.preventDefault();
+                window.history.back();
+                return false;
+            }
+        }
+    } catch (e) {
+        // fall through to the normal link
+    }
+
+    return true;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Live search ("search as you type")
+|--------------------------------------------------------------------------
+| Any <input data-live-search> inside a GET form becomes a live search:
+|   - typing waits 300 ms, then fetches the same page with the form's current
+|     values (search text + filters) and swaps in the new results;
+|   - "results" = everything that follows the form in the page, so the page
+|     itself is not reloaded and the search box keeps focus;
+|   - the page number is dropped, so every new search starts on page 1;
+|   - emptying the box shows the full list again;
+|   - pressing Enter or a Filter button also updates the results in place;
+|   - if anything goes wrong (network, session expired...) it falls back to a
+|     normal page load, so the old behaviour is always available.
+| The server decides what each user may see; nothing here changes that.
+*/
+function initLiveSearch(input) {
+    const form = input.closest('form');
+    if (!form || (form.getAttribute('method') || 'get').toLowerCase() !== 'get') return;
+
+    let timer = null;
+    let controller = null;
+    let latest = 0;
+
+    const followingElements = () => {
+        const list = [];
+        for (let node = form.nextElementSibling; node; node = node.nextElementSibling) list.push(node);
+        return list;
+    };
+
+    const buildUrl = () => {
+        const params = new URLSearchParams();
+        new FormData(form).forEach((value, key) => {
+            if (typeof value === 'string' && value.trim() !== '') params.append(key, value.trim());
+        });
+        const url = new URL(form.getAttribute('action') || window.location.href, window.location.href);
+        url.search = params.toString();     // no "page": a new search starts on page 1
+        return url;
+    };
+
+    const updateClearButtons = () => {
+        form.querySelectorAll('[data-live-clear]').forEach((el) => {
+            el.classList.toggle('hidden', input.value.trim() === '');
+        });
+    };
+
+    const run = async () => {
+        const url = buildUrl();
+
+        if (controller) controller.abort();     // forget the previous, slower request
+        controller = new AbortController();
+        const mine = ++latest;
+
+        const before = followingElements();
+        before.forEach((el) => {
+            el.classList.add('live-search-busy');
+            el.setAttribute('aria-busy', 'true');
+        });
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+                credentials: 'same-origin',
+                signal: controller.signal,
+            });
+
+            if (!response.ok || new URL(response.url).pathname !== url.pathname) {
+                window.location.href = url;     // error or redirect (e.g. session expired)
+                return;
+            }
+
+            const html = await response.text();
+            if (mine !== latest) return;        // a newer search already took over
+
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const position = [...document.querySelectorAll('input[data-live-search]')].indexOf(input);
+            const freshInput = [...doc.querySelectorAll('input[data-live-search]')][position];
+            const freshForm = freshInput && freshInput.closest('form');
+
+            if (!freshForm) {
+                window.location.href = url;
+                return;
+            }
+
+            const fresh = [];
+            for (let node = freshForm.nextElementSibling; node; node = node.nextElementSibling) {
+                fresh.push(document.importNode(node, true));
+            }
+
+            before.forEach((el) => el.remove());
+            form.after(...fresh);               // Alpine picks up the new elements by itself
+            window.history.replaceState(null, '', url);
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+            window.location.href = url;
+        }
+    };
+
+    input.addEventListener('input', () => {
+        updateClearButtons();
+        clearTimeout(timer);
+        timer = setTimeout(run, 300);           // debounce
+    });
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        clearTimeout(timer);
+        run();
+    });
+
+    form.querySelectorAll('[data-live-clear]').forEach((el) => {
+        el.addEventListener('click', (event) => {
+            event.preventDefault();
+            input.value = '';
+            updateClearButtons();
+            input.focus();
+            clearTimeout(timer);
+            run();
+        });
+    });
+
+    // The Search button is redundant now (it stays for browsers without JavaScript)
+    form.querySelectorAll('[data-live-search-button]').forEach((el) => el.classList.add('hidden'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[data-live-search]').forEach(initLiveSearch);
+});
+
 Alpine.start();

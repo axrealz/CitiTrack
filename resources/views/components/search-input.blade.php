@@ -12,5 +12,8 @@
         value="{{ $value ?? request($name) }}"
         placeholder="{{ $placeholder }}"
         class="input pl-9"
+        autocomplete="off"
+        data-live-search
+        {{ $attributes->merge(['aria-label' => $placeholder]) }}
     >
 </div>

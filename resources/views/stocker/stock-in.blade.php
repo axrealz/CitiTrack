@@ -126,6 +126,16 @@
                 <div class="flex justify-between gap-4"><dt>Amount paid</dt><dd class="font-medium" x-text="peso(paidCents)"></dd></div>
                 <div class="flex justify-between gap-4"><dt>Balance</dt><dd class="font-medium" x-text="peso(Math.max(balanceCents, 0))"></dd></div>
                 <div class="flex justify-between gap-4"><dt>Status</dt><dd class="font-medium" x-text="statusLabel"></dd></div>
+
+                <div class="flex justify-between gap-4" x-show="(vals.reference_no || '').trim() !== ''">
+                    <dt>Reference no.</dt>
+                    <dd class="font-medium text-right break-all" x-text="(vals.reference_no || '').trim()"></dd>
+                </div>
+                <div class="border-t border-slate-200 pt-2" x-show="(vals.notes || '').trim() !== ''">
+                    <dt>Notes</dt>
+                    <dd class="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words font-medium"
+                        x-text="(vals.notes || '').replace(/\r\n?/g, '\n')"></dd>
+                </div>
             </dl>
         </x-confirm-submit>
     </div>
@@ -148,6 +158,7 @@
                             <th class="py-2 text-right">Balance</th>
                             <th class="py-2 text-center">Status</th>
                             <th class="py-2 text-right">Date</th>
+                            <th class="py-2 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -176,6 +187,10 @@
                                 </td>
                                 <td class="py-2 text-right text-xs text-slate-500 whitespace-nowrap">
                                     {{ $log->created_at->format('M d, g:i A') }}
+                                </td>
+                                    <td class="py-2 text-right whitespace-nowrap">
+                                        <a href="{{ route('stocker.stock-in.edit', $log) }}"
+                                            class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">Update</a>
                                 </td>
                             </tr>
                         @endforeach
