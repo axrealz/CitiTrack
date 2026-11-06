@@ -21,9 +21,11 @@
             placeholder="All Categories"
         />
 
-        <select name="low_stock" class="input">
-            <option value="">All Stock</option>
-            <option value="1" @selected(request('low_stock') === '1')>Low Stock Only</option>
+        <select name="stock_status" class="input" aria-label="Stock status">
+            <option value="">All Products</option>
+            <option value="in"  @selected(request('stock_status') === 'in')>In Stock</option>
+            <option value="low" @selected(request('stock_status') === 'low')>Low Stock</option>
+            <option value="out" @selected(request('stock_status') === 'out')>Out of Stock</option>
         </select>
 
         <div class="flex gap-2">
@@ -45,6 +47,7 @@
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Cost</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Price</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Stock</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Stock Status</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Status</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
                 </tr>
@@ -68,16 +71,22 @@
                             <x-money :amount="$product->price" />
                         </td>
 
-                        {{-- Stock column with 3 states --}}
+                        {{-- Stock quantity + reorder level --}}
                         <td class="px-4 py-3 text-right text-sm">
-                            @if($product->stock_qty == 0)
-                                <x-badge color="red" size="xs">Out of Stock</x-badge>
-                            @elseif($product->stock_qty <= $product->reorder_level)
-                                <span class="text-amber-600 font-bold" title="Below reorder level ({{ $product->reorder_level }})">
-                                    {{ $product->stock_qty }}
-                                </span>
+                            <span class="{{ ['in' => 'text-slate-700', 'low' => 'text-amber-700 font-bold', 'out' => 'text-red-700 font-bold'][$product->stock_status] }}">
+                                {{ $product->stock_qty }}
+                            </span>
+                            <div class="text-xs text-slate-500">Reorder at {{ $product->reorder_level }}</div>
+                        </td>
+
+                        {{-- Stock Status badge --}}
+                        <td class="px-4 py-3 text-center">
+                            @if($product->stock_status === 'out')
+                                <x-badge color="red">Out of Stock</x-badge>
+                            @elseif($product->stock_status === 'low')
+                                <x-badge color="amber">Low Stock</x-badge>
                             @else
-                                <span class="text-slate-700">{{ $product->stock_qty }}</span>
+                                <x-badge color="green">In Stock</x-badge>
                             @endif
                         </td>
 
@@ -90,7 +99,7 @@
                         </td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
                             <a href="{{ route('admin.products.show', $product) }}"
-                               class="text-sky-700 hover:text-sky-800 text-sm font-medium">View</a>
+                               class="text-sky-700 hover:text-sky-900 text-sm font-medium">View</a>
                             <a href="{{ route('admin.products.edit', $product) }}"
                                class="text-indigo-600 hover:text-indigo-800 text-sm font-medium ml-3">Edit</a>
                             <span class="ml-3">

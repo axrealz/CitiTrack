@@ -3,19 +3,16 @@
 namespace App\Http\Controllers\Stocker;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
-use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 
+/**
+ * The separate Low Stock page was merged into Products (Stock Status column and
+ * filter). This route is kept so old links and bookmarks still work.
+ */
 class LowStockController extends Controller
 {
-    public function index(): View
+    public function index(): RedirectResponse
     {
-        $products = Product::active()
-            ->lowStock()
-            ->with(['category', 'supplier'])
-            ->orderBy('stock_qty')
-            ->get();
-
-        return view('stocker.low-stock', compact('products'));
+        return redirect()->route('stocker.products.index', ['stock_status' => 'low']);
     }
 }

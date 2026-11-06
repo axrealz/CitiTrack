@@ -51,7 +51,7 @@
                                     <div class="text-xs font-medium text-slate-700 capitalize">
                                         {{ str_replace('_', ' ', $log->type) }}
                                     </div>
-                                    <div class="text-xs text-slate-400">
+                                    <div class="text-xs text-slate-500">
                                         {{ $log->created_at->format('M d, g:i A') }}
                                     </div>
                                 </div>
@@ -76,9 +76,11 @@
                 <x-search-input name="q" placeholder="Search by name or SKU..." />
             </div>
 
-            <select name="low_stock" class="input">
-                <option value="">All Stock</option>
-                <option value="1" @selected(request('low_stock') === '1')>Low Stock Only</option>
+            <select name="stock_status" class="input" aria-label="Stock status">
+                <option value="">All Products</option>
+                <option value="in"  @selected(request('stock_status') === 'in')>In Stock</option>
+                <option value="low" @selected(request('stock_status') === 'low')>Low Stock</option>
+                <option value="out" @selected(request('stock_status') === 'out')>Out of Stock</option>
             </select>
 
             <div class="flex gap-2">
@@ -100,6 +102,7 @@
                         <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Supplier</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Stock</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase">Reorder</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">Stock Status</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase"></th>
                     </tr>
                 </thead>
@@ -115,17 +118,20 @@
                             <td class="px-4 py-3 text-sm text-slate-600">{{ $p->category->name ?? '—' }}</td>
                             <td class="px-4 py-3 text-sm text-slate-600">{{ $p->supplier->name ?? '—' }}</td>
                             <td class="px-4 py-3 text-right text-sm">
-                                @if($p->stock_qty == 0)
-                                    <x-badge color="red" size="xs">Out of Stock</x-badge>
-                                @elseif($p->stock_qty <= $p->reorder_level)
-                                    <span class="text-amber-700 font-bold" title="Below reorder level ({{ $p->reorder_level }})">
-                                        {{ $p->stock_qty }}
-                                    </span>
-                                @else
-                                    <span class="text-slate-700">{{ $p->stock_qty }}</span>
-                                @endif
+                                <span class="{{ ['in' => 'text-slate-700', 'low' => 'text-amber-700 font-bold', 'out' => 'text-red-700 font-bold'][$p->stock_status] }}">
+                                    {{ $p->stock_qty }}
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-right text-sm text-slate-500">{{ $p->reorder_level }}</td>
+                            <td class="px-4 py-3 text-center">
+                                @if($p->stock_status === 'out')
+                                    <x-badge color="red">Out of Stock</x-badge>
+                                @elseif($p->stock_status === 'low')
+                                    <x-badge color="amber">Low Stock</x-badge>
+                                @else
+                                    <x-badge color="green">In Stock</x-badge>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-right">
                                 <a href="{{ route('stocker.products.show', $p) }}"
                                    class="text-sky-700 hover:text-sky-900 text-sm font-medium">View</a>

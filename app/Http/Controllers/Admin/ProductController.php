@@ -27,7 +27,15 @@ class ProductController extends Controller
         }
 
         if ($request->get('low_stock') === '1') {
-            $query->lowStock();
+            $query->lowStock();   // old links/bookmarks
+        }
+
+        // Stock Status filter: in / low / out (most urgent first for low and out)
+        $stockStatus = $request->get('stock_status');
+        $query->withStockStatus($stockStatus);
+
+        if (in_array($stockStatus, ['low', 'out'], true)) {
+            $query->orderBy('stock_qty');
         }
 
         $products   = $query->latest()->paginate(15)->withQueryString();

@@ -70,6 +70,24 @@ class Product extends Model
         return $this->stock_qty <= $this->reorder_level;
     }
 
+        /**
+     * Stock status for the product lists, based on the product's own
+     * reorder_level (the same threshold isLowStock() / scopeLowStock() use):
+     *   out = quantity is 0 or less
+     *   low = quantity is above 0 but at or below the reorder level
+     *   in  = quantity is above the reorder level
+     * Calculated from the current quantity, so it changes by itself whenever
+     * stock goes up or down (stock-in, sales, returns, adjustments...).
+     */
+    public function getStockStatusAttribute(): string
+    {
+        if ($this->stock_qty <= 0) {
+            return 'out';
+        }
+
+        return $this->stock_qty <= $this->reorder_level ? 'low' : 'in';
+    }
+
     public function profit(): float
     {
         return (float) $this->price - (float) $this->cost;
@@ -80,6 +98,19 @@ class Product extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+        /**
+     * Filter by stock status: 'in', 'low' or 'out'. Anything else = no filter.
+     */
+    public function scopeWithStockStatus($query, ?string $status)
+    {
+        return match ($status) {
+            'out'   => $query->where('stock_qty', '<=', 0),
+            'low'   => $query->where('stock_qty', '>', 0)->whereColumn('stock_qty', '<=', 'reorder_level'),
+            'in'    => $query->where('stock_qty', '>', 0)->whereColumn('stock_qty', '>', 'reorder_level'),
+            default => $query,
+        };
     }
 
     public function scopeLowStock($query)

@@ -25,7 +25,6 @@
             <div class="px-3 pt-4 pb-1 text-xs uppercase text-slate-400 tracking-wider">Stock</div>
             <x-sidebar-link route="stocker.stock-in.index" icon="inbox" label="Stock-In" />
             <x-sidebar-link route="stocker.products.index" icon="cube"  label="Products" />
-            <x-sidebar-link route="stocker.low-stock"      icon="warn"  label="Low Stock" />
             <x-sidebar-link route="stocker.shipment-logs"  icon="truck" label="Shipments" />
 
             <div class="px-3 pt-4 pb-1 text-xs uppercase text-slate-400 tracking-wider">Requests</div>

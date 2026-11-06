@@ -51,7 +51,7 @@
                     <div class="text-xs text-sky-700 mt-1">Log a new delivery</div>
                 </a>
 
-                <a href="{{ route('stocker.low-stock') }}"
+                <a href="{{ route('stocker.products.index', ['stock_status' => 'low']) }}"
                    class="block p-5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition text-center">
                     <div class="text-3xl mb-2">⚠️</div>
                     <div class="font-semibold text-amber-800">Low Stock</div>
@@ -93,7 +93,7 @@
                 </table>
 
                 <div class="mt-4">
-                    <a href="{{ route('stocker.low-stock') }}"
+                    <a href="{{ route('stocker.products.index', ['stock_status' => 'low']) }}"
                        class="text-sm text-sky-700 hover:text-sky-900 font-medium">View all →</a>
                 </div>
             @endif
