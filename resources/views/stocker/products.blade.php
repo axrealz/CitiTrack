@@ -6,11 +6,7 @@
 
 @isset($product)
     {{-- ─── Product detail view ─── --}}
-    <x-page-header :title="$product->name" :subtitle="$product->sku ?? 'Product details'">
-            <x-slot:actions>
-                <a href="{{ route('stocker.products.index') }}" class="btn-secondary">← Back to list</a>
-            </x-slot:actions>
-    </x-page-header>
+    <x-page-header :title="$product->name" :subtitle="$product->sku ?? 'Product details'" />
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
